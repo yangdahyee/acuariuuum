@@ -1,9 +1,14 @@
-// GLTFLoader/SkeletonUtils를 '.js'로 임포트해도
-// 타입은 확장자 없는 선언을 쓰게 매핑
-declare module "three/examples/jsm/loaders/GLTFLoader.js" {
-  export * from "three/examples/jsm/loaders/GLTFLoader"
-  export { GLTFLoader as default } from "three/examples/jsm/loaders/GLTFLoader"
+// three의 examples 모듈 타입을 간단히 선언해서 TS 빨간줄 제거
+declare module "three/examples/jsm/loaders/GLTFLoader" {
+  export class GLTFLoader {
+    constructor(manager?: any)
+    load(url: string, onLoad?: (gltf: any) => void, onProgress?: (ev: any) => void, onError?: (err: any) => void): void
+    parse(data: string | ArrayBuffer, path: string, onLoad: (gltf: any) => void, onError?: (err: any) => void): void
+  }
 }
-declare module "three/examples/jsm/utils/SkeletonUtils.js" {
-  export * from "three/examples/jsm/utils/SkeletonUtils"
+
+declare module "three/examples/jsm/utils/SkeletonUtils" {
+  export const SkeletonUtils: {
+    clone: <T = any>(source: T) => T
+  }
 }

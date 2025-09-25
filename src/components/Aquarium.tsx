@@ -5,12 +5,14 @@ import { GLView } from "expo-gl"
 import { Renderer, TextureLoader as ExpoTextureLoader } from "expo-three"
 import * as THREE from "three"
 import { Asset } from "expo-asset"
+
+// ★ examples는 확장자 없이 임포트 (타입/리졸브 이슈 방지)
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader"
 import { SkeletonUtils } from "three/examples/jsm/utils/SkeletonUtils"
 
 type Props = {
-  fishSrc: any // require('./assets/models/fish/fish.gltf')
-  seaImage: any // require('./assets/images/sea.jpg')
+  fishSrc: any // require("./assets/models/fish/fish.gltf")
+  seaImage: any // require("./assets/images/sea.png")
   onBack: () => void
 }
 
@@ -19,10 +21,8 @@ const WORLD_HEIGHT = 10
 export default function Aquarium({ fishSrc, seaImage, onBack }: Props) {
   return (
     <View style={{ flex: 1 }}>
-      {/* RN 배경 이미지 */}
       <Image source={seaImage} style={StyleSheet.absoluteFill} resizeMode="cover" />
 
-      {/* 3D 씬 */}
       <GLView
         style={StyleSheet.absoluteFill}
         onContextCreate={async (gl) => {
@@ -30,65 +30,88 @@ export default function Aquarium({ fishSrc, seaImage, onBack }: Props) {
           const W = gl.drawingBufferWidth
           const H = gl.drawingBufferHeight
           renderer.setSize(W, H)
-          // GLView 배경은 투명 지원이 기기마다 다릅니다. 안전하게 3D 씬 안에 배경 plane를 쓰거나,
-          // 아래처럼 clearColor를 약간 투명하게 둘 수도 있음(기기별 차이 有):
-          renderer.setClearColor(0x000000, 0) // 투명 시도
+          renderer.setClearColor(0x000000, 0)
 
           const scene = new THREE.Scene()
           const aspect = W / H
           const camera = new THREE.OrthographicCamera((-WORLD_HEIGHT * aspect) / 2, (WORLD_HEIGHT * aspect) / 2, WORLD_HEIGHT / 2, -WORLD_HEIGHT / 2, 0.1, 100)
           camera.position.set(0, 0, 10)
 
-          // 라이트
           scene.add(new THREE.AmbientLight(0xffffff, 1))
           const dir = new THREE.DirectionalLight(0xffffff, 0.6)
           dir.position.set(3, 5, 4)
           scene.add(dir)
 
-          // ---- 배경 plane(옵션: RN Image만 써도 되지만 일관성 위해 Plane 추가)
+          // (옵션) 3D 배경 Plane
           {
-            const texAsset = Asset.fromModule(seaImage)
-            await texAsset.downloadAsync()
-            const texLoader = new ExpoTextureLoader(new THREE.LoadingManager())
-            const tex = await texLoader.loadAsync(texAsset.uri!)
+            const bgAsset = Asset.fromModule(seaImage)
+            await bgAsset.downloadAsync()
+            const tloader = new ExpoTextureLoader(new THREE.LoadingManager())
+            const tex = await tloader.loadAsync(bgAsset.uri!)
             const worldWidth = WORLD_HEIGHT * aspect
-            const bgGeo = new THREE.PlaneGeometry(worldWidth, WORLD_HEIGHT)
-            const bgMat = new THREE.MeshBasicMaterial({ map: tex })
-            const bg = new THREE.Mesh(bgGeo, bgMat)
+            const bg = new THREE.Mesh(new THREE.PlaneGeometry(worldWidth, WORLD_HEIGHT), new THREE.MeshBasicMaterial({ map: tex }))
             bg.position.set(0, 0, -5)
             scene.add(bg)
           }
 
-          // ---- GLTF 로드(Embedded 한 파일 가정)
+          // ---- glTF (Separate: .gltf + .bin + .png) → 경로를 절대 URL로 치환 후 parse
           const gltfAsset = Asset.fromModule(fishSrc)
+          const binAsset = Asset.fromModule(require("../../assets/models/fish/fish.bin"))
+          const pngAsset = Asset.fromModule(require("../../assets/models/fish/eye.png"))
+
+          // 각각 다운로드 (Asset.loadAsync([...]) 대신 → TS 경고 회피)
           await gltfAsset.downloadAsync()
+          await binAsset.downloadAsync()
+          await pngAsset.downloadAsync()
 
-          const manager = new THREE.LoadingManager()
-          // png/jpg 텍스처는 ExpoTextureLoader로
-          manager.addHandler(/\.(png|jpg|jpeg)$/i, new ExpoTextureLoader(manager))
+          // 1) glTF 텍스트 가져오기
+          const gltfText = await (await fetch(gltfAsset.uri!)).text()
 
-          const loader = new GLTFLoader(manager)
-          const clock = new THREE.Clock()
-
-          type Agent = {
-            node: THREE.Object3D
-            mixer: THREE.AnimationMixer
-            dir: 1 | -1
-            speed: number
+          // 2) 내부 uri들을 Expo가 제공한 HTTP URL로 치환
+          type GLTFDoc = {
+            buffers?: Array<{ uri?: string }>
+            images?: Array<{ uri?: string }>
+            [k: string]: any
           }
+          const doc: GLTFDoc = JSON.parse(gltfText)
+
+          const mapUri = (u?: string) => {
+            if (!u) return u
+            const name = u
+              .split("?")[0]
+              .split("#")[0]
+              .replace(/^.*[\\/]/, "")
+            if (name === "fish.bin") return binAsset.uri!
+            if (name === "eye.png") return pngAsset.uri!
+            return u
+          }
+
+          if (doc.buffers) doc.buffers = doc.buffers.map((b) => ({ ...b, uri: mapUri(b.uri) }))
+          if (doc.images) doc.images = doc.images.map((i) => ({ ...i, uri: mapUri(i.uri) }))
+
+          const patched = JSON.stringify(doc)
+
+          // 3) 로더 (RN 친화 텍스처 로더 등록)
+          const manager = new THREE.LoadingManager()
+          manager.addHandler(/\.(png|jpg|jpeg)$/i, new ExpoTextureLoader(manager))
+          const loader = new GLTFLoader(manager)
+
+          const clock = new THREE.Clock()
+          type Agent = { node: THREE.Object3D; mixer: THREE.AnimationMixer; dir: 1 | -1; speed: number }
           const agents: Agent[] = []
 
-          loader.load(
-            gltfAsset.uri || gltfAsset.localUri!,
-            (gltf) => {
+          // 4) URL 없이 parse로 로딩 → 경로 이슈 차단
+          loader.parse(
+            patched,
+            "",
+            (gltf: any) => {
               const original = gltf.scene
               const clips = gltf.animations || []
-              const swim = THREE.AnimationClip.findByName(clips, "Swim_Loop") || clips[0]
+              const swim = THREE.AnimationClip.findByName(clips, "Swim_Loop") || THREE.AnimationClip.findByName(clips, "ArmatureAction.001") || clips[0]
 
               const worldWidth = WORLD_HEIGHT * aspect
               const margin = 0.5
 
-              // 한 마리만
               const fish = SkeletonUtils.clone(original)
               const s = 1.0
               fish.scale.set(s, s, s)
@@ -98,17 +121,10 @@ export default function Aquarium({ fishSrc, seaImage, onBack }: Props) {
               const mixer = new THREE.AnimationMixer(fish)
               if (swim) mixer.clipAction(swim).play()
 
-              agents.push({
-                node: fish,
-                mixer,
-                dir: 1, // 오른쪽으로 시작
-                speed: 2.0, // 이동 속도 (월드 유닛/초)
-              })
+              agents.push({ node: fish, mixer, dir: 1, speed: 2.0 })
 
-              // 렌더 루프
               function render() {
                 const dt = clock.getDelta()
-
                 camera.updateProjectionMatrix()
 
                 for (const a of agents) {
@@ -118,10 +134,10 @@ export default function Aquarium({ fishSrc, seaImage, onBack }: Props) {
                   const halfW = (WORLD_HEIGHT * (gl.drawingBufferWidth / gl.drawingBufferHeight)) / 2 - margin
                   if (a.node.position.x > halfW) {
                     a.dir = -1
-                    a.node.scale.x = -Math.abs(a.node.scale.x) // 왼쪽 보기
+                    a.node.scale.x = -Math.abs(a.node.scale.x)
                   } else if (a.node.position.x < -halfW) {
                     a.dir = 1
-                    a.node.scale.x = Math.abs(a.node.scale.x) // 오른쪽 보기
+                    a.node.scale.x = Math.abs(a.node.scale.x)
                   }
                 }
 
@@ -131,13 +147,11 @@ export default function Aquarium({ fishSrc, seaImage, onBack }: Props) {
               }
               render()
             },
-            undefined,
-            (err) => console.error("[Aquarium] GLTF load error", err)
+            (err: unknown) => console.error("[Aquarium] GLTF parse error", err)
           )
         }}
       />
 
-      {/* 뒤로가기 */}
       <Pressable onPress={onBack} style={styles.backBtn}>
         <Text style={{ color: "#fff", fontWeight: "700" }}>← Back</Text>
       </Pressable>
