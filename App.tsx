@@ -10,7 +10,7 @@ const SEA_BG = require("./assets/images/sea.png")
 const FISHES = Array.from({ length: 6 }, (_, i) => ({
   id: `fish${i + 1}`,
   name: "멸치",
-  model: require("./assets/models/fish/fish.gltf"),
+  model: require("./assets/models/fish/fish.glb"),
   emoji: "🐟",
   accent: ["#22d3ee", "#60a5fa", "#f472b6", "#34d399", "#f59e0b", "#a78bfa"][i % 6],
 }))
@@ -19,7 +19,7 @@ export default function App() {
   const [selected, setSelected] = useState<(typeof FISHES)[0] | null>(null)
 
   if (selected) {
-    return <Aquarium fishSrc={selected.model} seaImage={SEA_BG} onBack={() => setSelected(null)} />
+    return <Aquarium model={selected.model} seaImage={SEA_BG} onBack={() => setSelected(null)} />
   }
 
   return (
