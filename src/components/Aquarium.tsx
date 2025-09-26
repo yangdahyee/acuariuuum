@@ -14,7 +14,7 @@ type Props = {
 }
 
 const DEFAULT_BG = require("../../assets/images/sea.png")
-const DEFAULT_MODEL = require("../../assets/models/fish/fish78.glb")
+const DEFAULT_MODEL = require("../../assets/models/fish/fish_2crown_downsize.glb")
 
 /* ───────────────── Canvas 쪽 ───────────────── */
 
@@ -28,15 +28,19 @@ function lerp(a: number, b: number, t: number) {
 function SwimmingFish({
   source,
   targetScreenHeightRatio = 0.22,
-  sizeMultiplier = 0.6, // ← 더 작게
-  baseSpeed = 2.1,
+  sizeMultiplier = 0.2, // ← 더 작게
+  baseSpeed = 5.1,
   margin = 0.7,
   turnZone = 0.8,
   flipOnTurn = true, // ← 방향 전환 시 좌우 뒤집기
-  ampRange = [0.4, 1.1],
-  freqRange = [0.5, 1.2],
+  ampRange = [0.1, 0.7],
+  freqRange = [0.5, 100.0],
   retargetEvery = [4, 9],
-  initialYawDeg = 90, // 우측 보기
+  initialYawDeg = 360, // 우측 보기
+  xOffset = 50,
+  yOffset = 10,
+  zLayer = 30,
+  spawnT = 0,
 }: {
   source: number
   targetScreenHeightRatio?: number
@@ -49,6 +53,10 @@ function SwimmingFish({
   retargetEvery?: [number, number]
   initialYawDeg?: number
   sizeMultiplier?: number
+  xOffset?: number
+  yOffset?: number
+  zLayer?: number
+  spawnT?: number
 }) {
   const group = useRef<Group>(null)
   const [scene, setScene] = useState<Group | null>(null)
@@ -56,7 +64,7 @@ function SwimmingFish({
   const baseScale = useRef(1)
   const halfWidthWorld = useRef(0)
   const placed = useRef(false)
-  const dirX = useRef<1 | -1>(Math.random() < 0.5 ? 1 : -1) // 시작 방향 랜덤
+  const dirX = useRef<1 | -1>(Math.random() < 0.8 ? 1 : -1) // 시작 방향 랜덤
   const tAccum = useRef(0)
 
   // 파형 파라미터
@@ -112,14 +120,16 @@ function SwimmingFish({
 
     // 첫 배치
     if (!placed.current) {
-      const startX = -viewport.width / 2 + margin + halfWidthWorld.current + 0.01
-      group.current.position.set(startX, 0, 0.5)
+      const left = -viewport.width / 2 + margin + halfWidthWorld.current + 0.01
+      const right = viewport.width / 2 - margin - halfWidthWorld.current - 0.01
+      const startX = lerp(left, right, clamp01(spawnT)) + xOffset
+      group.current.position.set(startX, yOffset, zLayer)
       group.current.scale.setScalar(baseScale.current)
       const yaw = dirX.current === 1 ? initialYawDeg : -initialYawDeg
       group.current.rotation.set(0, MathUtils.degToRad(yaw), 0)
       placed.current = true
     }
-
+    group.current.position.z = zLayer
     // 파라미터 서서히 변화
     changeTimer.current += delta
     if (changeTimer.current >= nextChangeIn.current) {
@@ -152,7 +162,7 @@ function SwimmingFish({
     // Y 파형
     tAccum.current += delta
     const yWave = Math.sin(tAccum.current * freq.current * Math.PI * 2 + phase.current) * amp.current
-    group.current.position.y = yWave
+    group.current.position.y = yOffset + yWave
   })
 
   return <group ref={group}>{scene && <primitive object={scene} />}</group>
@@ -160,11 +170,46 @@ function SwimmingFish({
 
 const CanvasScene = memo(function CanvasScene({ modelSrc }: { modelSrc: number }) {
   return (
-    <Canvas orthographic camera={{ position: [0, 0, 10], zoom: 30, near: 0.1, far: 100 }}>
+    <Canvas orthographic camera={{ position: [0, 0, 10], zoom: 50, near: 0.1, far: 100 }}>
       <ambientLight intensity={0.9} />
       <directionalLight intensity={0.7} position={[3, 5, 4]} />
       <OrbitControls enablePan={false} enableZoom={false} enableRotate={false} />
-      <SwimmingFish source={modelSrc} sizeMultiplier={0.4} />
+
+      {/* 1번 물고기: 위 레인 */}
+      <SwimmingFish
+        source={modelSrc}
+        sizeMultiplier={0.55}
+        xOffset={0.3}
+        yOffset={+0.22} // ↑ 위쪽 레인
+        zLayer={0.95} // 앞쪽(살짝)
+        ampRange={[0.03, 0.06]} // 파형 작게 → 레인 침범 방지
+        freqRange={[0.6, 1.0]}
+      />
+
+      {/* 2번 물고기: 아래 레인 */}
+      <SwimmingFish
+        source={require("../../assets/models/fish/fish1_pink.glb")}
+        sizeMultiplier={0.5}
+        baseSpeed={6.5}
+        spawnT={0.15}
+        yOffset={-0.22} // ↓ 아래쪽 레인
+        zLayer={0.9} // 뒤쪽(살짝)
+        ampRange={[0.1, 0.9]} // 파형 작게
+        freqRange={[0.1, 1.0]}
+        initialYawDeg={-50}
+      />
+
+      <SwimmingFish
+        source={require("../../assets/models/fish/fish78.glb")}
+        sizeMultiplier={0.5}
+        baseSpeed={2.6}
+        spawnT={0.75}
+        yOffset={-0.15} // ↓ 아래쪽 레인
+        zLayer={0.95} // 뒤쪽(살짝)
+        ampRange={[0.03, 0.96]} // 파형 작게
+        freqRange={[0.6, 1.0]}
+        initialYawDeg={-90}
+      />
     </Canvas>
   )
 })

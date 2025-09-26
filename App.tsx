@@ -10,7 +10,7 @@ const SEA_BG = require("./assets/images/sea.png")
 const FISHES = Array.from({ length: 6 }, (_, i) => ({
   id: `fish${i + 1}`,
   name: "멸치",
-  model: require("./assets/models/fish/fish78.glb"),
+  model: require("./assets/models/fish/fish_2crown_downsize.glb"),
   emoji: "🐟",
   accent: ["#22d3ee", "#60a5fa", "#f472b6", "#34d399", "#f59e0b", "#a78bfa"][i % 6],
 }))
