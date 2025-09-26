@@ -4,7 +4,7 @@ import { View, Image, StyleSheet, Pressable, Text, TextInput, FlatList } from "r
 import { Canvas, useFrame, useThree } from "@react-three/fiber/native"
 import { OrbitControls } from "@react-three/drei/native"
 import { Asset } from "expo-asset"
-import * as THREE from "three"
+import { Group, Box3, Vector3, MathUtils } from "three"
 import { GLTFLoader } from "three-stdlib"
 
 type Props = {
@@ -27,15 +27,16 @@ function lerp(a: number, b: number, t: number) {
 
 function SwimmingFish({
   source,
-  targetScreenHeightRatio = 0.35,
+  targetScreenHeightRatio = 0.22,
+  sizeMultiplier = 0.6, // ← 더 작게
   baseSpeed = 2.1,
   margin = 0.7,
   turnZone = 0.8,
-  flipOnTurn = false,
+  flipOnTurn = true, // ← 방향 전환 시 좌우 뒤집기
   ampRange = [0.4, 1.1],
   freqRange = [0.5, 1.2],
   retargetEvery = [4, 9],
-  initialYawDeg = 90, // 넘패드3(우측 뷰)
+  initialYawDeg = 90, // 우측 보기
 }: {
   source: number
   targetScreenHeightRatio?: number
@@ -47,14 +48,15 @@ function SwimmingFish({
   freqRange?: [number, number]
   retargetEvery?: [number, number]
   initialYawDeg?: number
+  sizeMultiplier?: number
 }) {
-  const group = useRef<THREE.Group>(null)
-  const [scene, setScene] = useState<THREE.Group | null>(null)
+  const group = useRef<Group>(null)
+  const [scene, setScene] = useState<Group | null>(null)
 
   const baseScale = useRef(1)
   const halfWidthWorld = useRef(0)
   const placed = useRef(false)
-  const dirX = useRef<1 | -1>(1)
+  const dirX = useRef<1 | -1>(Math.random() < 0.5 ? 1 : -1) // 시작 방향 랜덤
   const tAccum = useRef(0)
 
   // 파형 파라미터
@@ -66,8 +68,8 @@ function SwimmingFish({
   const changeTimer = useRef(0)
   const nextChangeIn = useRef(lerp(retargetEvery[0], retargetEvery[1], Math.random()))
 
-  const tmpBox = useMemo(() => new THREE.Box3(), [])
-  const tmpV = useMemo(() => new THREE.Vector3(), [])
+  const tmpBox = useMemo(() => new Box3(), [])
+  const tmpV = useMemo(() => new Vector3(), [])
   const { viewport } = useThree()
 
   // GLB 로드 & 스케일/경계 계산
@@ -75,13 +77,13 @@ function SwimmingFish({
     let mounted = true
     ;(async () => {
       const asset = Asset.fromModule(source)
-      await asset.downloadAsync()
+      if (!asset.localUri) await asset.downloadAsync()
       const loader = new GLTFLoader()
       loader.load(
         asset.localUri || asset.uri || "",
         (gltf) => {
           if (!mounted) return
-          const obj = gltf.scene as THREE.Group
+          const obj = gltf.scene as Group
 
           tmpBox.setFromObject(obj)
           const size = tmpBox.getSize(tmpV.set(0, 0, 0))
@@ -91,7 +93,7 @@ function SwimmingFish({
           const maxDim = Math.max(size.x, size.y, size.z) || 1
           const targetH = viewport.height * targetScreenHeightRatio
           const s = targetH / maxDim
-          baseScale.current = s
+          baseScale.current = s * sizeMultiplier
           halfWidthWorld.current = (size.x * s) / 2
 
           setScene(obj)
@@ -113,7 +115,8 @@ function SwimmingFish({
       const startX = -viewport.width / 2 + margin + halfWidthWorld.current + 0.01
       group.current.position.set(startX, 0, 0.5)
       group.current.scale.setScalar(baseScale.current)
-      group.current.rotation.set(0, THREE.MathUtils.degToRad(initialYawDeg), 0) // 옆면
+      const yaw = dirX.current === 1 ? initialYawDeg : -initialYawDeg
+      group.current.rotation.set(0, MathUtils.degToRad(yaw), 0)
       placed.current = true
     }
 
@@ -157,11 +160,11 @@ function SwimmingFish({
 
 const CanvasScene = memo(function CanvasScene({ modelSrc }: { modelSrc: number }) {
   return (
-    <Canvas orthographic camera={{ position: [0, 0, 10], zoom: 50, near: 0.1, far: 100 }} dpr={[1, 2]}>
+    <Canvas orthographic camera={{ position: [0, 0, 10], zoom: 30, near: 0.1, far: 100 }}>
       <ambientLight intensity={0.9} />
       <directionalLight intensity={0.7} position={[3, 5, 4]} />
       <OrbitControls enablePan={false} enableZoom={false} enableRotate={false} />
-      <SwimmingFish source={modelSrc} />
+      <SwimmingFish source={modelSrc} sizeMultiplier={0.4} />
     </Canvas>
   )
 })
@@ -180,12 +183,8 @@ function TodoOverlay() {
     setTodos((prev) => [{ id: String(Date.now()), text, done: false }, ...prev])
     setInput("")
   }
-  const toggleTodo = (id: string) => {
-    setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)))
-  }
-  const removeTodo = (id: string) => {
-    setTodos((prev) => prev.filter((t) => t.id !== id))
-  }
+  const toggleTodo = (id: string) => setTodos((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)))
+  const removeTodo = (id: string) => setTodos((prev) => prev.filter((t) => t.id !== id))
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
@@ -229,7 +228,6 @@ export default function Aquarium({ onBack, seaImage = DEFAULT_BG, modelSrc = DEF
   return (
     <View style={{ flex: 1 }}>
       <Image source={seaImage} style={StyleSheet.absoluteFill} resizeMode="cover" />
-
       {/* Canvas는 메모된 별도 컴포넌트 → 투두 변화에도 재렌더 최소화 */}
       <CanvasScene modelSrc={modelSrc} />
 
@@ -269,46 +267,13 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255,255,255,0.15)",
   },
-  todoTitle: {
-    color: "#e2e8f0",
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
+  todoTitle: { color: "#e2e8f0", fontSize: 16, fontWeight: "800", marginBottom: 8 },
   inputRow: { flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 8 },
-  input: {
-    flex: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: "rgba(2,6,23,0.6)",
-    color: "#e2e8f0",
-  },
-  addBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: "#93c5fd",
-  },
-  todoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 6,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: "#94a3b8",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxOn: {
-    backgroundColor: "#86efac",
-    borderColor: "#86efac",
-  },
+  input: { flex: 1, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, backgroundColor: "rgba(2,6,23,0.6)", color: "#e2e8f0" },
+  addBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: "#93c5fd" },
+  todoItem: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: "#94a3b8", alignItems: "center", justifyContent: "center" },
+  checkboxOn: { backgroundColor: "#86efac", borderColor: "#86efac" },
   todoText: { flex: 1, color: "#e2e8f0" },
   todoDone: { textDecorationLine: "line-through", color: "#94a3b8" },
   removeBtn: { paddingHorizontal: 8, paddingVertical: 4 },

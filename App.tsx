@@ -6,7 +6,7 @@ import Aquarium from "./src/components/Aquarium"
 
 const SEA_BG = require("./assets/images/sea.png")
 
-// 바둑판용 더미 데이터 (같은 glTF를 여러 칸에서 선택 가능)
+// 바둑판용 더미 데이터
 const FISHES = Array.from({ length: 6 }, (_, i) => ({
   id: `fish${i + 1}`,
   name: "멸치",
@@ -68,100 +68,35 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#06121e" },
-
-  // 배경/스크림
   bg: { ...StyleSheet.absoluteFillObject, opacity: 0.9 },
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.35)",
-  },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.35)" },
 
-  // 헤더
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-  },
-  kicker: {
-    color: "#a5f3fc",
-    fontWeight: "700",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    fontSize: 12,
-  },
-  title: {
-    marginTop: 6,
-    fontSize: 26,
-    fontWeight: "800",
-    color: "white",
-  },
-  subtitle: {
-    marginTop: 6,
-    color: "rgba(255,255,255,0.9)",
-  },
+  header: { paddingTop: 60, paddingHorizontal: 20, paddingBottom: 8 },
+  kicker: { color: "#a5f3fc", fontWeight: "700", letterSpacing: 1, textTransform: "uppercase", fontSize: 12 },
+  title: { marginTop: 6, fontSize: 26, fontWeight: "800", color: "white" },
+  subtitle: { marginTop: 6, color: "rgba(255,255,255,0.9)" },
 
-  // 그리드
-  gridContent: {
-    paddingHorizontal: 12,
-    paddingBottom: 24,
-    paddingTop: 4,
-  },
-  columns: {
-    // 각 줄 좌우 여백 맞춤
-    justifyContent: "space-between",
-  },
+  gridContent: { paddingHorizontal: 12, paddingBottom: 24, paddingTop: 4 },
+  columns: { justifyContent: "space-between" },
 
-  // 타일
   tile: {
-    width: "48%", // 두 칼럼
-    aspectRatio: 1.05, // 정사각형에 가까운 비율
+    width: "48%",
+    aspectRatio: 1.05,
     marginVertical: 8,
     borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.95)",
     borderWidth: 3,
-
-    // 그림자
     ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.18,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: 10 },
-      },
+      ios: { shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 10 } },
       android: { elevation: 5 },
     }),
-
-    // 내부 정렬
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  tilePressed: {
-    transform: [{ translateY: 1 }],
-    opacity: 0.96,
-  },
-
-  // 썸네일(가운데 큰 아이콘 자리)
-  thumb: {
-    width: "70%",
-    aspectRatio: 1,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  tilePressed: { transform: [{ translateY: 1 }], opacity: 0.96 },
+  thumb: { width: "70%", aspectRatio: 1, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   thumbEmoji: { fontSize: 48 },
-
-  // 이름 배지
-  badge: {
-    position: "absolute",
-    bottom: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  badgeText: {
-    color: "#0b1220",
-    fontWeight: "800",
-    letterSpacing: 0.2,
-  },
+  badge: { position: "absolute", bottom: 10, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  badgeText: { color: "#0b1220", fontWeight: "800", letterSpacing: 0.2 },
 })
