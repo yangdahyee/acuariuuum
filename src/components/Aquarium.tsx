@@ -14,7 +14,7 @@ type Props = {
 }
 
 const DEFAULT_BG = require("../../assets/images/sea.png")
-const DEFAULT_MODEL = require("../../assets/models/fish/fish.glb")
+const DEFAULT_MODEL = require("../../assets/models/fish/fish78.glb")
 
 /* ───────────────── Canvas 쪽 ───────────────── */
 
