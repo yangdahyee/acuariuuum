@@ -1,4 +1,3 @@
-// src/components/Aquarium.tsx
 import React, { useEffect, useMemo, useRef, useState, memo } from "react"
 import { View, Image, StyleSheet, Pressable, Text } from "react-native"
 import { Canvas, useFrame, useThree } from "@react-three/fiber/native"
@@ -7,14 +6,48 @@ import { Asset } from "expo-asset"
 import { Group, Box3, Vector3, MathUtils, AnimationMixer, AnimationClip, LoopRepeat } from "three"
 import { GLTFLoader } from "three-stdlib"
 
-type Props = { onBack?: () => void; seaImage?: any; modelSrc?: number }
+// ───────────────── types ─────────────────
+type AquariumProps = {
+  onBack?: () => void
+  seaImage?: any
+  modelSrc?: number // 단일 모델 fallback
+  models?: number[] // 여러 마리
+}
 
+type SwimmingFishProps = {
+  source: number // require(...) 모듈 id
+  targetScreenHeightRatio?: number
+  sizeMultiplier?: number
+
+  // 이동
+  speed?: number
+  margin?: number
+  flipOnTurn?: boolean
+  startSide?: "left" | "right" | "middle"
+  initialYawDeg?: number
+  xOffset?: number
+  yFrac?: number // -1(아래) ~ +1(위)
+  zLayer?: number
+  spawnT?: number
+
+  // 상하 바운스
+  bobAmplitude?: number
+  bobFrequency?: number
+
+  // 애니(있을 때만 재생)
+  animName?: string
+  animSpeed?: number
+  fadeSeconds?: number
+}
+
+// ───────────────── utils ─────────────────
 const DEFAULT_BG = require("../../assets/images/sea.png")
 const DEFAULT_MODEL = require("../../assets/models/fish/fish_2crown_downsize.glb")
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
+// ───────────────── Fish ─────────────────
 function SwimmingFish({
   source,
   targetScreenHeightRatio = 0.22,
@@ -24,40 +57,22 @@ function SwimmingFish({
   speed = 2.0,
   margin = 0.7,
   flipOnTurn = true,
-  startSide = "left", // "left" | "right" | "middle"
+  startSide = "left",
   initialYawDeg = 90,
   xOffset = 0,
-  yFrac = 0, // -1(아래) ~ +1(위)
+  yFrac = 0,
   zLayer = 0.5,
   spawnT = 0.5,
 
-  // 상하 바운스(옵션)
+  // 바운스
   bobAmplitude = 0,
   bobFrequency = 1.0,
 
-  // 애니메이션(옵션)
+  // 애니
   animName = "swim_idle",
   animSpeed = 1.0,
   fadeSeconds = 0.1,
-}: {
-  source: number
-  targetScreenHeightRatio?: number
-  sizeMultiplier?: number
-  speed?: number
-  margin?: number
-  flipOnTurn?: boolean
-  startSide?: "left" | "right" | "middle"
-  initialYawDeg?: number
-  xOffset?: number
-  yFrac?: number
-  zLayer?: number
-  spawnT?: number
-  bobAmplitude?: number
-  bobFrequency?: number
-  animName?: string
-  animSpeed?: number
-  fadeSeconds?: number
-}) {
+}: SwimmingFishProps) {
   const group = useRef<Group>(null)
   const [scene, setScene] = useState<Group | null>(null)
 
@@ -105,7 +120,7 @@ function SwimmingFish({
 
           setScene(obj)
 
-          // ── 애니: 있으면 재생, 없으면 스킵 ──
+          // 애니(있을 때만)
           const hasClips = Array.isArray(gltf.animations) && gltf.animations.length > 0
           if (!hasClips) {
             mixerRef.current = null
@@ -113,13 +128,8 @@ function SwimmingFish({
             return
           }
 
-          // 찾기(이름 없으면 첫 클립)
           const clip = AnimationClip.findByName(gltf.animations, animName) || gltf.animations[0]
-          if (!clip) {
-            mixerRef.current = null
-            actionRef.current = null
-            return
-          }
+          if (!clip) return
 
           const mixer = new AnimationMixer(obj)
           mixerRef.current = mixer
@@ -146,14 +156,12 @@ function SwimmingFish({
         mixerRef.current = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, viewport.height, targetScreenHeightRatio, sizeMultiplier, animName, animSpeed])
 
   useFrame((_, delta) => {
-    // 애니가 있으면 업데이트, 없으면 통과
     if (mixerRef.current) mixerRef.current.update(delta)
-
     if (!group.current) return
+
     const halfH = viewport.height / 2
     const laneY = halfH * MathUtils.clamp(yFrac, -1, 1)
 
@@ -194,7 +202,7 @@ function SwimmingFish({
       if (flipOnTurn) group.current.scale.x = -Math.abs(group.current.scale.x)
     }
 
-    // Y(화면 비율) + 바운스(옵션)
+    // Y 고정 + 바운스 옵션
     if (bobAmplitude > 0) {
       bobT.current += delta
       group.current.position.y = laneY + Math.sin(bobT.current * bobFrequency * Math.PI * 2) * bobAmplitude
@@ -208,36 +216,52 @@ function SwimmingFish({
   return <group ref={group}>{scene && <primitive object={scene} />}</group>
 }
 
-const CanvasScene = memo(function CanvasScene({ modelSrc }: { modelSrc: number }) {
+// ───────────────── Scene ─────────────────
+const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) {
+  // Lane 프리셋(최대 5마리 예시)
+  const lanes = [
+    { yFrac: +0.8, zLayer: 0.96, speed: 2.2, startSide: "right" as const, size: 0.28 },
+    { yFrac: +0.4, zLayer: 0.95, speed: 2.0, startSide: "middle" as const, size: 0.27, spawnT: 0.3 },
+    { yFrac: 0.0, zLayer: 0.94, speed: 1.8, startSide: "left" as const, size: 0.26 },
+    { yFrac: -0.4, zLayer: 0.93, speed: 2.4, startSide: "middle" as const, size: 0.26, spawnT: 0.7 },
+    { yFrac: -0.8, zLayer: 0.92, speed: 2.6, startSide: "right" as const, size: 0.25 },
+  ]
+
   return (
     <Canvas orthographic camera={{ position: [0, 0, 10], zoom: 50, near: 0.1, far: 100 }}>
       <ambientLight intensity={0.9} />
       <directionalLight intensity={0.7} position={[3, 5, 4]} />
       <OrbitControls enablePan={false} enableZoom={false} enableRotate={false} />
 
-      {/* 애니 있는 모델은 재생, 없으면 이동만 */}
-      <SwimmingFish source={modelSrc} sizeMultiplier={0.28} startSide="right" yFrac={+0.8} speed={2.2} zLayer={0.96} animName="swim_idle" animSpeed={1.0} />
-      <SwimmingFish
-        source={require("../../assets/models/fish/action_finish_fish1_pink.glb")}
-        sizeMultiplier={0.26}
-        startSide="middle"
-        spawnT={0.25}
-        yFrac={0.0}
-        speed={1.6}
-        zLayer={0.92}
-        animName="swim_idle" // 여기에 애니 없으면 자동으로 이동만
-        animSpeed={1.2}
-      />
-      <SwimmingFish source={require("../../assets/models/fish/fish78.glb")} sizeMultiplier={0.26} startSide="left" yFrac={-0.5} speed={2.8} zLayer={0.94} animName="swim_idle" animSpeed={0.9} />
+      {models.map((m, i) => {
+        const lane = lanes[i % lanes.length]
+        return (
+          <SwimmingFish
+            key={i}
+            source={m}
+            sizeMultiplier={lane.size}
+            startSide={lane.startSide}
+            spawnT={lane.spawnT ?? 0.5}
+            yFrac={lane.yFrac}
+            speed={lane.speed}
+            zLayer={lane.zLayer}
+            animName="swim_idle" // 애니 없으면 자동으로 이동만
+            animSpeed={1.0}
+          />
+        )
+      })}
     </Canvas>
   )
 })
 
-export default function Aquarium({ onBack, seaImage = DEFAULT_BG, modelSrc = DEFAULT_MODEL }: Props) {
+// ───────────────── Page ─────────────────
+export default function Aquarium({ onBack, seaImage = DEFAULT_BG, modelSrc = DEFAULT_MODEL, models }: AquariumProps) {
+  const modelList = models && models.length > 0 ? models : [modelSrc]
+
   return (
     <View style={{ flex: 1 }}>
       <Image source={seaImage} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      <CanvasScene modelSrc={modelSrc} />
+      <CanvasScene models={modelList} />
       <Pressable onPress={onBack} style={styles.backBtn}>
         <Text style={styles.backTxt}>← Back</Text>
       </Pressable>
