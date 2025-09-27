@@ -1,3 +1,4 @@
+// src/components/Aquarium.tsx
 import React, { useEffect, useMemo, useRef, useState, memo } from "react"
 import { View, Image, StyleSheet, Pressable, Text } from "react-native"
 import { Canvas, useFrame, useThree } from "@react-three/fiber/native"
@@ -6,16 +7,18 @@ import { Asset } from "expo-asset"
 import { Group, Box3, Vector3, MathUtils, AnimationMixer, AnimationClip, LoopRepeat } from "three"
 import { GLTFLoader } from "three-stdlib"
 
-// ───────────────── types ─────────────────
-type AquariumProps = {
+/* ───────────────── types ───────────────── */
+export type AquariumProps = {
   onBack?: () => void
   seaImage?: any
   modelSrc?: number // 단일 모델 fallback
   models?: number[] // 여러 마리
 }
 
-type SwimmingFishProps = {
-  source: number // require(...) 모듈 id
+type StartSide = "left" | "right" | "middle"
+
+export type SwimmingFishProps = {
+  source: number // require(...) 모듈 id (expo-asset)
   targetScreenHeightRatio?: number
   sizeMultiplier?: number
 
@@ -23,7 +26,7 @@ type SwimmingFishProps = {
   speed?: number
   margin?: number
   flipOnTurn?: boolean
-  startSide?: "left" | "right" | "middle"
+  startSide?: StartSide
   initialYawDeg?: number
   xOffset?: number
   yFrac?: number // -1(아래) ~ +1(위)
@@ -34,20 +37,30 @@ type SwimmingFishProps = {
   bobAmplitude?: number
   bobFrequency?: number
 
+  // 회전 전환(스케일 반전 대신/또는 함께)
+  faceTurn?: boolean // 벽에서 방향 전환 시 회전도 바꿀지
+  turnSeconds?: number // 회전 전환에 걸리는 시간(부드럽게)
+
   // 애니(있을 때만 재생)
   animName?: string
   animSpeed?: number
   fadeSeconds?: number
 }
 
-// ───────────────── utils ─────────────────
+/* ───────────────── utils ───────────────── */
 const DEFAULT_BG = require("../../assets/images/sea.png")
 const DEFAULT_MODEL = require("../../assets/models/fish/fish_2crown_downsize.glb")
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
-// ───────────────── Fish ─────────────────
+// 각도 보간(래핑 고려: 가장 짧은 경로로)
+function lerpAngle(a: number, b: number, t: number) {
+  let diff = MathUtils.euclideanModulo(b - a + Math.PI, Math.PI * 2) - Math.PI
+  return a + diff * t
+}
+
+/* ───────────────── Fish ───────────────── */
 function SwimmingFish({
   source,
   targetScreenHeightRatio = 0.22,
@@ -68,6 +81,10 @@ function SwimmingFish({
   bobAmplitude = 0,
   bobFrequency = 1.0,
 
+  // 회전 전환
+  faceTurn = true,
+  turnSeconds = 0.25,
+
   // 애니
   animName = "swim_idle",
   animSpeed = 1.0,
@@ -82,6 +99,7 @@ function SwimmingFish({
   const placed = useRef(false)
   const dirX = useRef<1 | -1>(1)
   const bobT = useRef(0)
+  const targetYaw = useRef(0) // 바라볼 목표 Y 회전(라디안)
 
   // 애니
   const mixerRef = useRef<AnimationMixer | null>(null)
@@ -182,8 +200,10 @@ function SwimmingFish({
       }
       group.current.position.set(startX + xOffset, laneY, zLayer)
       group.current.scale.setScalar(baseScale.current)
-      const yaw = dirX.current === 1 ? initialYawDeg : -initialYawDeg
-      group.current.rotation.set(0, MathUtils.degToRad(yaw), 0)
+      const yawDeg = dirX.current === 1 ? initialYawDeg : -initialYawDeg
+      const yawRad = MathUtils.degToRad(yawDeg)
+      group.current.rotation.set(0, yawRad, 0)
+      targetYaw.current = yawRad // 초기 타겟 회전
       placed.current = true
     }
 
@@ -192,17 +212,33 @@ function SwimmingFish({
     const rightB = viewport.width / 2 - margin - halfWidthWorld.current
     group.current.position.x += dirX.current * speed * delta
 
-    if (group.current.position.x <= leftB) {
-      group.current.position.x = leftB
-      dirX.current = 1
-      if (flipOnTurn) group.current.scale.x = Math.abs(group.current.scale.x)
-    } else if (group.current.position.x >= rightB) {
-      group.current.position.x = rightB
-      dirX.current = -1
-      if (flipOnTurn) group.current.scale.x = -Math.abs(group.current.scale.x)
+    const hitLeft = group.current.position.x <= leftB
+    const hitRight = group.current.position.x >= rightB
+
+    if (hitLeft || hitRight) {
+      group.current.position.x = hitLeft ? leftB : rightB
+      dirX.current = hitLeft ? 1 : -1
+
+      // 스케일 뒤집기(원하면 유지)
+      if (flipOnTurn) {
+        const s = Math.abs(group.current.scale.x) || baseScale.current
+        group.current.scale.x = dirX.current === 1 ? s : -s
+      }
+
+      // 회전 타겟 갱신
+      if (faceTurn) {
+        const deg = dirX.current === 1 ? initialYawDeg : -initialYawDeg
+        targetYaw.current = MathUtils.degToRad(deg)
+      }
     }
 
-    // Y 고정 + 바운스 옵션
+    // 회전 부드럽게 보간
+    if (faceTurn) {
+      const k = 1 - Math.pow(0.001, delta / Math.max(0.0001, turnSeconds)) // 시간기반 감쇠
+      group.current.rotation.y = lerpAngle(group.current.rotation.y, targetYaw.current, k)
+    }
+
+    // Y(고정 + 바운스 옵션)
     if (bobAmplitude > 0) {
       bobT.current += delta
       group.current.position.y = laneY + Math.sin(bobT.current * bobFrequency * Math.PI * 2) * bobAmplitude
@@ -216,9 +252,9 @@ function SwimmingFish({
   return <group ref={group}>{scene && <primitive object={scene} />}</group>
 }
 
-// ───────────────── Scene ─────────────────
+/* ───────────────── Scene ───────────────── */
 const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) {
-  // Lane 프리셋(최대 5마리 예시)
+  // Lane 프리셋(예시 5개)
   const lanes = [
     { yFrac: +0.8, zLayer: 0.96, speed: 2.2, startSide: "right" as const, size: 0.28 },
     { yFrac: +0.4, zLayer: 0.95, speed: 2.0, startSide: "middle" as const, size: 0.27, spawnT: 0.3 },
@@ -245,8 +281,10 @@ const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) 
             yFrac={lane.yFrac}
             speed={lane.speed}
             zLayer={lane.zLayer}
-            animName="swim_idle" // 애니 없으면 자동으로 이동만
+            animName="swim_idle" // 애니 없으면 이동만
             animSpeed={1.0}
+            faceTurn={true}
+            turnSeconds={0.25}
           />
         )
       })}
@@ -254,9 +292,9 @@ const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) 
   )
 })
 
-// ───────────────── Page ─────────────────
+/* ───────────────── Page ───────────────── */
 export default function Aquarium({ onBack, seaImage = DEFAULT_BG, modelSrc = DEFAULT_MODEL, models }: AquariumProps) {
-  const modelList = models && models.length > 0 ? models : [modelSrc]
+  const modelList: number[] = models && models.length > 0 ? models : [modelSrc]
 
   return (
     <View style={{ flex: 1 }}>
@@ -269,6 +307,7 @@ export default function Aquarium({ onBack, seaImage = DEFAULT_BG, modelSrc = DEF
   )
 }
 
+/* ───────────────── styles ───────────────── */
 const styles = StyleSheet.create({
   backBtn: {
     position: "absolute",
