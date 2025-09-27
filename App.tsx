@@ -32,9 +32,22 @@ const CATALOG = [
     unlocked: true,
     accent: "#34d399",
   },
-  // 미발견(잠금) 예시들 — 클릭 불가 + 회색 처리
-  { id: "unk-1", name: "멸치피쉬", emoji: "❔", model: null, unlocked: false, accent: "#94a3b8" },
-  { id: "unk-2", name: "복어피쉬", emoji: "❔", model: null, unlocked: false, accent: "#94a3b8" },
+  {
+    id: "anchovy-4",
+    name: "초코피쉬",
+    emoji: "🐟",
+    model: require("./assets/models/fish/crown_darkchoco.glb"),
+    unlocked: true,
+    accent: "#7b4000ff",
+  },
+  {
+    id: "anchovy-5",
+    name: "크라우니피쉬",
+    emoji: "🐟",
+    model: require("./assets/models/fish/ani_fish_2crown.glb"),
+    unlocked: true,
+    accent: "#3f78baff",
+  },
   { id: "unk-3", name: "큐트피쉬", emoji: "❔", model: null, unlocked: false, accent: "#94a3b8" },
 ]
 
