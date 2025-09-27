@@ -256,9 +256,9 @@ function SwimmingFish({
 const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) {
   // Lane 프리셋(예시 5개)
   const lanes = [
-    { yFrac: +0.8, zLayer: 0.96, speed: 2.2, startSide: "right" as const, size: 0.28 },
-    { yFrac: +0.4, zLayer: 0.95, speed: 2.0, startSide: "middle" as const, size: 0.27, spawnT: 0.3 },
-    { yFrac: 0.0, zLayer: 0.94, speed: 1.8, startSide: "left" as const, size: 0.26 },
+    { yFrac: +0.0, zLayer: 0.96, speed: 2.2, startSide: "right" as const, size: 0.28 },
+    { yFrac: -0.7, zLayer: 0.95, speed: 2.0, startSide: "middle" as const, size: 0.27, spawnT: 0.3 },
+    { yFrac: 0.6, zLayer: 0.94, speed: 1.8, startSide: "left" as const, size: 0.26 },
     { yFrac: -0.4, zLayer: 0.93, speed: 2.4, startSide: "middle" as const, size: 0.26, spawnT: 0.7 },
     { yFrac: -0.8, zLayer: 0.92, speed: 2.6, startSide: "right" as const, size: 0.25 },
   ]
