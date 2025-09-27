@@ -6,6 +6,7 @@ import { OrbitControls } from "@react-three/drei/native"
 import { Asset } from "expo-asset"
 import { Group, Box3, Vector3, MathUtils, AnimationMixer, AnimationClip, LoopRepeat } from "three"
 import { GLTFLoader } from "three-stdlib"
+import TodoOverlay from "./TodoOverlay"
 
 /* ───────────────── types ───────────────── */
 export type AquariumProps = {
@@ -300,6 +301,7 @@ export default function Aquarium({ onBack, seaImage = DEFAULT_BG, modelSrc = DEF
     <View style={{ flex: 1 }}>
       <Image source={seaImage} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <CanvasScene models={modelList} />
+      <TodoOverlay />
       <Pressable onPress={onBack} style={styles.backBtn}>
         <Text style={styles.backTxt}>← Back</Text>
       </Pressable>
