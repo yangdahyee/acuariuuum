@@ -159,7 +159,7 @@ const CanvasScene = memo(function CanvasScene({ modelSrc }: { modelSrc: number }
       {/* 위/중/아래를 확 벌려서 절대 안 겹치게 */}
       <SwimmingFish source={modelSrc} sizeMultiplier={0.28} startSide="right" yFrac={+0.8} speed={2.0} zLayer={0.96} />
       <SwimmingFish source={require("../../assets/models/fish/fish1_pink.glb")} sizeMultiplier={0.26} startSide="middle" spawnT={0.25} yFrac={0.0} speed={1.6} zLayer={0.92} />
-      <SwimmingFish source={require("../../assets/models/fish/fish78.glb")} sizeMultiplier={0.26} startSide="left" yFrac={-0.8} speed={2.6} zLayer={0.94} />
+      <SwimmingFish source={require("../../assets/models/fish/fish78.glb")} sizeMultiplier={0.26} startSide="left" yFrac={-0.5} speed={2.6} zLayer={0.94} />
     </Canvas>
   )
 })
