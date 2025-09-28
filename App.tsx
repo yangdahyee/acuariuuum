@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar"
 import React, { useMemo, useState } from "react"
 import { View, Text, Pressable, Image, StyleSheet, FlatList, Platform } from "react-native"
 import Aquarium from "./src/components/Aquarium"
+import DecorScreen from "./src/screens/DecorScreen"
 
 const SEA_BG = require("./assets/images/sea.png")
 
@@ -53,20 +54,22 @@ const CATALOG = [
 
 export default function App() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [goAquarium, setGoAquarium] = useState(false)
+  const [screen, setScreen] = useState<"select" | "aquarium" | "decor">("select")
 
   const selectedModels = useMemo(() => CATALOG.filter((c) => c.unlocked && selectedIds.includes(c.id)).map((c) => c.model as number), [selectedIds])
 
-  if (goAquarium) {
-    // 선택한 수만큼 띄움 (models 배열로 전달)
+  if (screen === "aquarium") {
+    return <Aquarium models={selectedModels.length ? selectedModels : [require("./assets/models/fish/fish_2crown_downsize.glb")]} seaImage={SEA_BG} onBack={() => setScreen("select")} />
+  }
+
+  if (screen === "decor") {
     return (
-      <Aquarium
-        models={selectedModels.length ? selectedModels : [require("./assets/models/fish/fish_2crown_downsize.glb")]}
-        seaImage={SEA_BG}
-        onBack={() => {
-          setGoAquarium(false)
-        }}
-      />
+      <View style={styles.container}>
+        <Image source={SEA_BG} style={styles.bg} resizeMode="cover" />
+        <View style={styles.scrim} />
+        <DecorScreen background={SEA_BG} onBack={() => setScreen("select")} />
+        <StatusBar style="light" />
+      </View>
     )
   }
 
@@ -133,9 +136,15 @@ export default function App() {
 
       {/* 하단 ‘입수’ 버튼 */}
       <View style={styles.footer}>
-        <Pressable onPress={() => setGoAquarium(true)} disabled={selectedIds.length === 0} style={[styles.goBtn, selectedIds.length === 0 && { opacity: 0.5 }]}>
-          <Text style={styles.goBtnText}>바다로 풍덩</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <Pressable onPress={() => setScreen("decor")} style={[styles.goBtn, { backgroundColor: "#3b82f6", flex: 1 }]}>
+            <Text style={styles.goBtnText}>꾸미기</Text>
+          </Pressable>
+
+          <Pressable onPress={() => setScreen("aquarium")} disabled={selectedIds.length === 0} style={[styles.goBtn, { flex: 1 }, selectedIds.length === 0 && { opacity: 0.5 }]}>
+            <Text style={styles.goBtnText}>바다로 풍덩</Text>
+          </Pressable>
+        </View>
       </View>
 
       <StatusBar style="light" />
