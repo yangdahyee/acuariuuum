@@ -4,7 +4,7 @@ import { View, Image, StyleSheet, Pressable, Text } from "react-native"
 import { Canvas, useFrame, useThree } from "@react-three/fiber/native"
 import { OrbitControls } from "@react-three/drei/native"
 import { Asset } from "expo-asset"
-import { Group, Box3, Vector3, MathUtils, AnimationMixer, AnimationClip, LoopRepeat } from "three"
+import { Group, Box3, Vector3, MathUtils, AnimationMixer, AnimationClip, LoopRepeat, PerspectiveCamera } from "three"
 import { GLTFLoader } from "three-stdlib"
 import TodoOverlay from "./TodoOverlay"
 
@@ -61,6 +61,19 @@ function lerpAngle(a: number, b: number, t: number) {
   return a + diff * t
 }
 
+/**
+ * 원근 카메라 기준, 임의의 z(월드 좌표)의 화면(world) 폭/높이 계산
+ * height = 2 * tan(fov/2) * distance
+ * width  = height * aspect
+ */
+function getWorldSizeAtZ(camera: PerspectiveCamera, z: number) {
+  const dist = Math.abs(camera.position.z - z)
+  const fovRad = (camera.fov * Math.PI) / 180
+  const height = 2 * Math.tan(fovRad / 2) * dist
+  const width = height * camera.aspect
+  return { width, height, halfW: width / 2, halfH: height / 2, dist }
+}
+
 /* ───────────────── Fish ───────────────── */
 function SwimmingFish({
   source,
@@ -75,7 +88,7 @@ function SwimmingFish({
   initialYawDeg = 90,
   xOffset = 0,
   yFrac = 0,
-  zLayer = 0.5,
+  zLayer = 0.5, // 원근 감 있게 하려면 z를 바꾸면 크기/경계가 달라집니다.
   spawnT = 0.5,
 
   // 바운스
@@ -108,8 +121,9 @@ function SwimmingFish({
 
   const tmpBox = useMemo(() => new Box3(), [])
   const tmpV = useMemo(() => new Vector3(), [])
-  const { viewport } = useThree()
+  const { camera } = useThree()
 
+  // 로딩 + 중앙정렬 + 스케일 정규화(원근)
   useEffect(() => {
     let mounted = true
 
@@ -122,17 +136,19 @@ function SwimmingFish({
         asset.localUri || asset.uri || "",
         (gltf) => {
           if (!mounted) return
-
           const obj = gltf.scene as Group
 
-          // 중앙 정렬 + 스케일 정규화
+          // 중앙 정렬
           tmpBox.setFromObject(obj)
           const size = tmpBox.getSize(tmpV.set(0, 0, 0))
           const center = tmpBox.getCenter(tmpV.set(0, 0, 0))
           obj.position.sub(center)
 
+          // 원근 카메라에서 현재 zLayer에서의 화면 높이를 구해 비율 스케일링
+          const persp = camera as PerspectiveCamera
+          const { height } = getWorldSizeAtZ(persp, zLayer)
           const maxDim = Math.max(size.x, size.y, size.z) || 1
-          const targetH = viewport.height * targetScreenHeightRatio
+          const targetH = height * targetScreenHeightRatio
           const s = (targetH / maxDim) * sizeMultiplier
           baseScale.current = s
           halfWidthWorld.current = (size.x * s) / 2
@@ -175,19 +191,32 @@ function SwimmingFish({
         mixerRef.current = null
       }
     }
-  }, [source, viewport.height, targetScreenHeightRatio, sizeMultiplier, animName, animSpeed])
+  }, [
+    source,
+    camera, // 카메라 파라미터가 변하면 스케일 재계산
+    zLayer,
+    targetScreenHeightRatio,
+    sizeMultiplier,
+    animName,
+    animSpeed,
+  ])
 
   useFrame((_, delta) => {
     if (mixerRef.current) mixerRef.current.update(delta)
     if (!group.current) return
 
-    const halfH = viewport.height / 2
+    const persp = camera as PerspectiveCamera
+
+    // 이 물고기가 존재하는 z에서의 월드 화면 크기
+    const { width, height, halfW, halfH } = getWorldSizeAtZ(persp, zLayer)
+
+    // laneY: 화면 높이 기준 비율 배치
     const laneY = halfH * MathUtils.clamp(yFrac, -1, 1)
 
-    // 최초 배치
+    // 최초 배치 (왼/오/중)
     if (!placed.current) {
-      const left = -viewport.width / 2 + margin + halfWidthWorld.current + 0.01
-      const right = viewport.width / 2 - margin - halfWidthWorld.current - 0.01
+      const left = -halfW + margin + halfWidthWorld.current + 0.01
+      const right = halfW - margin - halfWidthWorld.current - 0.01
       let startX = 0
       if (startSide === "left") {
         startX = left
@@ -208,9 +237,11 @@ function SwimmingFish({
       placed.current = true
     }
 
-    // 좌우 핑퐁
-    const leftB = -viewport.width / 2 + margin + halfWidthWorld.current
-    const rightB = viewport.width / 2 - margin - halfWidthWorld.current
+    // 좌우 경계
+    const leftB = -halfW + margin + halfWidthWorld.current
+    const rightB = halfW - margin - halfWidthWorld.current
+
+    // 이동
     group.current.position.x += dirX.current * speed * delta
 
     const hitLeft = group.current.position.x <= leftB
@@ -220,7 +251,7 @@ function SwimmingFish({
       group.current.position.x = hitLeft ? leftB : rightB
       dirX.current = hitLeft ? 1 : -1
 
-      // 스케일 뒤집기(원하면 유지)
+      // 스케일 뒤집기(원하면)
       if (flipOnTurn) {
         const s = Math.abs(group.current.scale.x) || baseScale.current
         group.current.scale.x = dirX.current === 1 ? s : -s
@@ -239,7 +270,7 @@ function SwimmingFish({
       group.current.rotation.y = lerpAngle(group.current.rotation.y, targetYaw.current, k)
     }
 
-    // Y(고정 + 바운스 옵션)
+    // Y(고정 + 바운스)
     if (bobAmplitude > 0) {
       bobT.current += delta
       group.current.position.y = laneY + Math.sin(bobT.current * bobFrequency * Math.PI * 2) * bobAmplitude
@@ -247,6 +278,7 @@ function SwimmingFish({
       group.current.position.y = laneY
     }
 
+    // 깊이 고정
     group.current.position.z = zLayer
   })
 
@@ -255,7 +287,7 @@ function SwimmingFish({
 
 /* ───────────────── Scene ───────────────── */
 const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) {
-  // Lane 프리셋(예시 5개)
+  // Lane 프리셋(원근에서도 동작)
   const lanes = [
     { yFrac: +0.0, zLayer: 0.96, speed: 2.2, startSide: "right" as const, size: 0.28 },
     { yFrac: -0.7, zLayer: 0.95, speed: 2.0, startSide: "middle" as const, size: 0.27, spawnT: 0.3 },
@@ -265,9 +297,13 @@ const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) 
   ]
 
   return (
-    <Canvas orthographic camera={{ position: [0, 0, 10], zoom: 50, near: 0.1, far: 100 }}>
+    <Canvas
+      // ✅ 원근 카메라 사용
+      camera={{ fov: 50, position: [0, 0, 10], near: 0.1, far: 100 }}
+    >
       <ambientLight intensity={0.9} />
       <directionalLight intensity={0.7} position={[3, 5, 4]} />
+      {/* 컨트롤을 쓰지 않으므로 불러오지 않아도 되지만, 유지해도 무방 */}
       <OrbitControls enablePan={false} enableZoom={false} enableRotate={false} />
 
       {models.map((m, i) => {
