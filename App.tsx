@@ -7,20 +7,10 @@ import DecorScreen from "./src/screens/DecorScreen"
 
 const SEA_BG = require("./assets/images/sea.png")
 
-// 물고기 카탈로그: 앞 3개만 언락, 나머진 잠금(회색/비활성)
 const CATALOG = [
   {
-    // 눈알 없고 애니메이션 적용 없음
-    id: "anchovy-1",
-    name: "크라운피쉬",
-    emoji: "🐟",
-    model: require("./assets/models/fish/fish_2crown_downsize.glb"),
-    unlocked: true,
-    accent: "#22d3ee",
-  },
-  {
     // 분홍 프린세스. 잘 나옴
-    id: "anchovy-2",
+    id: "anchovy-1",
     name: "프린세스피쉬",
     emoji: "🐟",
     model: require("./assets/models/fish/action_finish_fish1_pink.glb"),
@@ -29,12 +19,21 @@ const CATALOG = [
   },
   {
     // 잘 나옴. BUT 단독 시 ERROR
-    id: "anchovy-3",
+    id: "anchovy-2",
     name: "대왕피쉬",
     emoji: "🐟",
     model: require("./assets/models/fish/FISH_B01_Choco.glb"),
     unlocked: true,
     accent: "#34d399",
+  },
+  {
+    // 수정 후, A07 베리
+    id: "anchovy-3",
+    name: "크라운피쉬",
+    emoji: "🐟",
+    model: require("./assets/models/fish/FISH_A07_Berry.glb"),
+    unlocked: true,
+    accent: "#22d3ee",
   },
   {
     // 잘 나옴. 단독시 에러 X
@@ -55,11 +54,11 @@ const CATALOG = [
     accent: "#3f78baff",
   },
   {
-    // 겹쳐서 나옴. [Aquarium] GLB load error [TypeError: Network request failed] 뜸.
+    // 수정 후, A05
     id: "anchovy-6",
     name: "큐트피쉬",
     emoji: "🐟",
-    model: require("./assets/models/fish/FISH_A04_Sunset.glb"),
+    model: require("./assets/models/fish/FISH_A05_Neon.glb"),
     unlocked: true,
     accent: "#94a3b8",
   },
@@ -96,7 +95,7 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.kicker}>Aquarium</Text>
         <Text style={styles.title}>헤엄칠 물고기를 고르세요</Text>
-        <Text style={styles.subtitle}>발견한 멸치 3마리 중 원하는 만큼 선택하세요.</Text>
+        <Text style={styles.subtitle}>발견한 멸치 중 원하는 만큼 선택하세요.</Text>
         <Text style={styles.subtitle}>
           선택: <Text style={{ fontWeight: "800", color: "#e2e8f0" }}>{selectedIds.length}</Text> 마리
         </Text>

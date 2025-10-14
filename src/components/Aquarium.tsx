@@ -56,7 +56,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
 // 각도 보간(래핑 고려: 가장 짧은 경로로)
 function lerpAngle(a: number, b: number, t: number) {
-  let diff = MathUtils.euclideanModulo(b - a + Math.PI, Math.PI * 2) - Math.PI
+  const diff = MathUtils.euclideanModulo(b - a + Math.PI, Math.PI * 2) - Math.PI
   return a + diff * t
 }
 
@@ -68,7 +68,7 @@ function SwimmingFish({
 
   // 이동
   speed = 2.0,
-  margin = 0.7,
+  margin = 0.9, // ← 살짝 키워서 벽 몰림/겹침 완화
   flipOnTurn = true,
   startSide = "left",
   initialYawDeg = 90,
@@ -253,13 +253,14 @@ function SwimmingFish({
 
 /* ───────────────── Scene ───────────────── */
 const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) {
-  // Lane 프리셋(예시 5개)
+  // 레인: 6개로 늘리고 값 분산(겹침 최소화)
   const lanes = [
-    { yFrac: +0.0, zLayer: 0.96, speed: 2.2, startSide: "right" as const, size: 0.28 },
-    { yFrac: -0.7, zLayer: 0.95, speed: 2.0, startSide: "middle" as const, size: 0.27, spawnT: 0.3 },
-    { yFrac: 0.6, zLayer: 0.94, speed: 1.8, startSide: "left" as const, size: 0.26 },
-    { yFrac: -0.4, zLayer: 0.93, speed: 2.4, startSide: "middle" as const, size: 0.26, spawnT: 0.7 },
-    { yFrac: -0.8, zLayer: 0.92, speed: 2.6, startSide: "right" as const, size: 0.25 },
+    { yFrac: +0.82, zLayer: 0.968, speed: 2.1, startSide: "right" as const, size: 0.27, spawnT: 0.15 },
+    { yFrac: +0.48, zLayer: 0.958, speed: 1.95, startSide: "middle" as const, size: 0.26, spawnT: 0.35 },
+    { yFrac: +0.14, zLayer: 0.948, speed: 2.35, startSide: "left" as const, size: 0.25, spawnT: 0.6 },
+    { yFrac: -0.2, zLayer: 0.938, speed: 2.05, startSide: "middle" as const, size: 0.26, spawnT: 0.8 },
+    { yFrac: -0.54, zLayer: 0.928, speed: 2.55, startSide: "right" as const, size: 0.25, spawnT: 0.45 },
+    { yFrac: -0.86, zLayer: 0.918, speed: 1.85, startSide: "left" as const, size: 0.26, spawnT: 0.05 },
   ]
 
   return (
