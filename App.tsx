@@ -10,6 +10,7 @@ const SEA_BG = require("./assets/images/sea.png")
 // 물고기 카탈로그: 앞 3개만 언락, 나머진 잠금(회색/비활성)
 const CATALOG = [
   {
+    // 눈알 없고 애니메이션 적용 없음
     id: "anchovy-1",
     name: "크라운피쉬",
     emoji: "🐟",
@@ -18,6 +19,7 @@ const CATALOG = [
     accent: "#22d3ee",
   },
   {
+    // 분홍 프린세스. 잘 나옴
     id: "anchovy-2",
     name: "프린세스피쉬",
     emoji: "🐟",
@@ -26,14 +28,16 @@ const CATALOG = [
     accent: "#60a5fa",
   },
   {
+    // 잘 나옴. BUT 단독 시 ERROR
     id: "anchovy-3",
     name: "대왕피쉬",
     emoji: "🐟",
-    model: require("./assets/models/fish/fish78.glb"),
+    model: require("./assets/models/fish/FISH_B01_Choco.glb"),
     unlocked: true,
     accent: "#34d399",
   },
   {
+    // 잘 나옴. 단독시 에러 X
     id: "anchovy-4",
     name: "초코피쉬",
     emoji: "🐟",
@@ -42,6 +46,7 @@ const CATALOG = [
     accent: "#7b4000ff",
   },
   {
+    // 잘 나옴
     id: "anchovy-5",
     name: "크라우니피쉬",
     emoji: "🐟",
@@ -49,7 +54,15 @@ const CATALOG = [
     unlocked: true,
     accent: "#3f78baff",
   },
-  { id: "unk-3", name: "큐트피쉬", emoji: "❔", model: null, unlocked: false, accent: "#94a3b8" },
+  {
+    // 겹쳐서 나옴. [Aquarium] GLB load error [TypeError: Network request failed] 뜸.
+    id: "anchovy-6",
+    name: "큐트피쉬",
+    emoji: "🐟",
+    model: require("./assets/models/fish/FISH_A04_Sunset.glb"),
+    unlocked: true,
+    accent: "#94a3b8",
+  },
 ]
 
 export default function App() {

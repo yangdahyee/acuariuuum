@@ -6,8 +6,6 @@ import { OrbitControls } from "@react-three/drei/native"
 import { Asset } from "expo-asset"
 import { Group, Box3, Vector3, MathUtils, AnimationMixer, AnimationClip, LoopRepeat } from "three"
 import { GLTFLoader } from "three-stdlib"
-import TodoOverlay from "./TodoOverlay"
-import GLBAnimatedFish from "./GLBAnimatedFish"
 
 /* ───────────────── types ───────────────── */
 export type AquariumProps = {
@@ -107,13 +105,12 @@ function SwimmingFish({
   const mixerRef = useRef<AnimationMixer | null>(null)
   const actionRef = useRef<ReturnType<AnimationMixer["clipAction"]> | null>(null)
 
-  const tmpBox = useMemo(() => new Box3(), [])
-  const tmpV = useMemo(() => new Vector3(), [])
+  const tmpBox = useMemo(() => new Box3(), [] as const)
+  const tmpV = useMemo(() => new Vector3(), [] as const)
   const { viewport } = useThree()
 
   useEffect(() => {
     let mounted = true
-
     ;(async () => {
       const asset = Asset.fromModule(source)
       if (!asset.localUri) await asset.downloadAsync()
@@ -221,7 +218,7 @@ function SwimmingFish({
       group.current.position.x = hitLeft ? leftB : rightB
       dirX.current = hitLeft ? 1 : -1
 
-      // 스케일 뒤집기(원하면 유지)
+      // 스케일 뒤집기(옵션)
       if (flipOnTurn) {
         const s = Math.abs(group.current.scale.x) || baseScale.current
         group.current.scale.x = dirX.current === 1 ? s : -s
@@ -236,7 +233,7 @@ function SwimmingFish({
 
     // 회전 부드럽게 보간
     if (faceTurn) {
-      const k = 1 - Math.pow(0.001, delta / Math.max(0.0001, turnSeconds)) // 시간기반 감쇠
+      const k = 1 - Math.pow(0.001, delta / Math.max(0.0001, turnSeconds))
       group.current.rotation.y = lerpAngle(group.current.rotation.y, targetYaw.current, k)
     }
 
@@ -270,40 +267,6 @@ const CanvasScene = memo(function CanvasScene({ models }: { models: number[] }) 
       <ambientLight intensity={0.9} />
       <directionalLight intensity={0.7} position={[3, 5, 4]} />
       <OrbitControls enablePan={false} enableZoom={false} enableRotate={false} />
-      <GLBAnimatedFish
-        id="GLB-CHOCOLATE" // ← 로그/디버그에서 식별
-        source={require("../../assets/models/fish/crown_darkchoco.glb")}
-        animName="swim_idle"
-        animSpeed={5.0}
-        // 이동/배치
-        speed={2.2}
-        speedJitterPct={0.52} // 개체별 속도 지터
-        yFrac={-0.2}
-        zLayer={0.95}
-        faceTurn
-        flipOnTurn={false} // 스킨드 메시 안전
-        turnSeconds={0.25}
-        phaseOffsetSec={Math.random() * 1.2} // 시작 위상 랜덤
-        // ▶ 역동 옵션
-        bankDegrees={7}
-        bankLerpSec={0.16}
-        turnBoostFactor={1.35}
-        turnBoostDurationSec={0.35}
-        turnCrossFadeSec={0.18}
-        // (클립 이름 있으면 자동 페이드)
-        turnClipLeft="turn_left"
-        turnClipRight="turn_right"
-        tintOnTurn
-        tintColor={0x66ccff}
-        tintIntensity={0.75}
-        // (선택) 꼬리 웨이브 추가
-        extraTailWave
-        tailBoneName="Tail"
-        tailAmp={10.55}
-        tailHz={50.8}
-        // 디버그
-        debug={false}
-      />
 
       {models.map((m, i) => {
         const lane = lanes[i % lanes.length]
@@ -336,7 +299,6 @@ export default function Aquarium({ onBack, seaImage = DEFAULT_BG, modelSrc = DEF
     <View style={{ flex: 1 }}>
       <Image source={seaImage} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <CanvasScene models={modelList} />
-      <TodoOverlay />
       <Pressable onPress={onBack} style={styles.backBtn}>
         <Text style={styles.backTxt}>← Back</Text>
       </Pressable>
