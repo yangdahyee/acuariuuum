@@ -1,5 +1,7 @@
 ### 블렌더 파일에서 해야할 일
 
+<img width="1572" height="477" alt="image" src="https://github.com/user-attachments/assets/7941531f-dbb0-4e13-ac52-1a32acac2394" />
+
 1. material 이름 똑같이 바꾸기
 2. 애니메이션까지 완료한 파일로 하기
 
